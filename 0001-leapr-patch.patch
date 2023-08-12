@@ -1,0 +1,113 @@
+From cfd38d2b1519ebeeabdfed756458b7c08dbaa40c Mon Sep 17 00:00:00 2001
+From: Gavin Ridley <gavin.keith.ridley@gmail.com>
+Date: Thu, 13 Jul 2023 14:39:08 -0400
+Subject: [PATCH] leapr patch
+
+---
+ src/leapr.f90 | 47 +++++++++++++++++++++++++++++++++++++++++++----
+ 1 file changed, 43 insertions(+), 4 deletions(-)
+
+diff --git a/src/leapr.f90 b/src/leapr.f90
+index be120de..ced49e7 100644
+--- a/src/leapr.f90
++++ b/src/leapr.f90
+@@ -13,6 +13,7 @@ module leapm
+    integer::nphon
+    integer::mat
+    real(kr)::smin
++   integer::sout
+    real(kr)::za
+    real(kr)::awr
+    real(kr)::spr
+@@ -134,6 +135,13 @@ contains
+    !    isabt   sab type (0=symmetric, 1=asymmetric, def=0)
+    !    ilog    log flag (0=s, 1=log10(s), def=0)
+    !    smin    minimum S(alpha, beta) stored in file (def=1e-75)
++   !    sout    output S table. This is used to get the 
++   !            mixing contributions to the full S law
++   !            when both translational and solid effects
++   !            are present.
++   !                (0=St exp(-lam*alpha) + conv(St,S) (default))
++   !                (1=St exp(-lam*alpha))
++   !                (2=conv(St,S) (default))
+    !
+    ! card 5 - principal scatterer control
+    !    awr     weight ratio to neutron for principal scatterer
+@@ -244,7 +252,8 @@ contains
+    isabt=0
+    ilog=0
+    smin=1.0e-75_kr
+-   read(nsysi,*) mat,za,isabt,ilog,smin
++   sout=0
++   read(nsysi,*) mat,za,isabt,ilog,smin,sout
+    write(nsyso,'(/&
+      &  '' no. of temperatures .................. '',i10/&
+      &  '' print flag ........................... '',i10/&
+@@ -253,8 +262,9 @@ contains
+      &  '' za ................................... '',i10/&
+      &  '' isabt ................................ '',i10/&
+      &  '' ilog ................................. '',i10/&
++     &  '' sout ................................. '',i10/&
+      &  '' smin.................. ............... '',es10.3)')&
+-     &  ntempr,iprint,nphon,mat,nint(za),isabt,ilog,smin
++     &  ntempr,iprint,nphon,mat,nint(za),isabt,ilog,sout,smin
+    if (isabt.ne.0) write(nsyso,'(/&
+      &''*** Warning.  isabt=1 pendf tapes CANNOT be processed '',&
+      &''by the NJOY THERMR module ***'')')
+@@ -904,7 +914,14 @@ contains
+             s=s*delta/3
+             if (s.lt.tiny) s=0
+             st=terps(sd,nbt,delta,be)
+-            if (st.gt.zero) s=s+exp(-al*f0)*st
++            if (sout.eq.0) then
++                if (st.gt.zero) s=s+exp(-al*f0)*st
++            endif
++            if (sout.eq.1) then
++                s=exp(-al*f0)*st
++            endif
++            ! if sout == 2, then it contains only the
++            ! convolution part.
+ 
+             !--store results
+             ssm(ibeta,ialpha,itemp)=s
+@@ -3271,7 +3288,7 @@ contains
+    scr(8)=beta(nbeta)
+    scr(9)=awr
+    scr(10)=sigfig(therm*beta(nbeta),7,0)
+-   scr(11)=0
++   scr(11)=f0
+    scr(12)=npr
+    if (nss.ne.0) then
+       scr(13)=b7
+@@ -3576,6 +3593,28 @@ contains
+       endif
+    enddo
+    call tab1io(0,nout,nprnt,scr(1),nb,nw)
++
++   ! Output the Debye-Waller lambdas
++   scr(1)=0
++   scr(2)=0
++   scr(3)=0
++   scr(4)=0
++   scr(5)=1
++   ntf=ntempr
++   scr(6)=ntf
++   scr(7)=ntf
++   scr(8)=2
++   do i=1,ntf
++      if (i.le.ntempr) then
++         scr(2*i+7)=sigfig(tempr(i),7,0)
++         scr(2*i+8)=sigfig(dwpix(i)*(awr*tempr(i)*bk),7,0)
++      else
++         scr(2*i+7)=sigfig(up*scr(2*i+5),7,0)
++         scr(2*i+8)=scr(2*i+6)
++      endif
++   enddo
++   call tab1io(0,nout,nprnt,scr(1),nb,nw)
++
+    call asend(nout,nprnt)
+    call afend(nout,nprnt)
+    call amend(nout,nprnt)
+-- 
+2.40.1
+

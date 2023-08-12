@@ -1,0 +1,27 @@
+From d8373b1d8d6abda34a513e1f9b22100be6e3b760 Mon Sep 17 00:00:00 2001
+From: Gavin Ridley <gavin.keith.ridley@gmail.com>
+Date: Mon, 3 Jul 2023 20:28:28 -0400
+Subject: [PATCH] read debye waller lambda from modded njoy
+
+---
+ openmc/data/thermal.py | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/openmc/data/thermal.py b/openmc/data/thermal.py
+index b6e700a0c..de8efba52 100644
+--- a/openmc/data/thermal.py
++++ b/openmc/data/thermal.py
+@@ -990,6 +990,10 @@ class ThermalScattering(EqualityMixin):
+                 _, Teff = endf.get_tab1_record(file_obj)
+                 data['effective_temperature'].append(Teff)
+ 
++        # Get effective temperature for each atom
++        _, dwpix = endf.get_tab1_record(file_obj)
++        data['debye_waller_lambda'] = dwpix
++
+         name = ev.target['zsymam'].strip()
+         instance = cls(name, awr, energy_max, kTs)
+         if elastic is not None:
+-- 
+2.40.1
+
